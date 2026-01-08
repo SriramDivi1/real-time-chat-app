@@ -26,6 +26,7 @@ connectDB();
 // Routes
 app.use('/api/health', require('./routes/health'));
 app.use('/api/auth', require('./routes/auth'));
+app.use('/api/chats', require('./routes/chat'));
 
 // 404 Handler
 app.use((req, res) => {
