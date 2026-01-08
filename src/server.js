@@ -3,12 +3,15 @@ const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
 const { Server } = require('socket.io');
+const redisIO = require('socket.io-redis');
 require('dotenv').config();
 
 const { connectDB } = require('./config/database');
 const { logger } = require('./utils/logger');
 const { socketAuthMiddleware } = require('./middleware/socketAuth');
 const { initializeSocketEvents } = require('./socket/chatEvents');
+const { connectRedis, redisClient } = require('./config/redis');
+const { initializeRedisPubSub, closeRedisPubSub } = require('./services/redisPubSub');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -25,6 +28,11 @@ app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
 // Connect to Database
 connectDB();
+
+// Connect to Redis
+connectRedis().catch((err) => {
+  logger.warn('Redis connection failed, continuing without Redis', err.message);
+});
 
 // Routes
 app.use('/api/health', require('./routes/health'));
@@ -65,7 +73,12 @@ const io = new Server(server, {
   },
   transports: ['websocket', 'polling'],
   pingInterval: 30000,
-  pingTimeout: 10000
+  pingTimeout: 10000,
+  adapter: redisIO({
+    host: process.env.REDIS_HOST || 'localhost',
+    port: process.env.REDIS_PORT || 6379,
+    password: process.env.REDIS_PASSWORD || undefined
+  })
 });
 
 // Apply Socket.IO authentication middleware
@@ -74,14 +87,18 @@ io.use(socketAuthMiddleware);
 // Initialize Socket.IO events
 initializeSocketEvents(io);
 
-logger.info(`🔌 Socket.IO initialized`);
+// Initialize Redis Pub/Sub
+initializeRedisPubSub(io);
+
+logger.info(`🔌 Socket.IO initialized with Redis adapter`);
 
 // Graceful Shutdown
 process.on('SIGTERM', () => {
   logger.info('SIGTERM signal received: closing HTTP server');
+  closeRedisPubSub();
   io.close();
   server.close(() => {
-    logger.info('HTTP server and Socket.IO closed');
+    logger.info('HTTP server, Socket.IO and Redis closed');
     process.exit(0);
   });
 });

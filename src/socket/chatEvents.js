@@ -2,6 +2,13 @@ const Message = require('../models/Message');
 const Chat = require('../models/Chat');
 const User = require('../models/User');
 const { logger } = require('../utils/logger');
+const {
+  setUserOnline,
+  setUserOffline,
+  publishPresenceEvent,
+  getOnlineUsers
+} = require('../services/presenceManager');
+const { publishChatEvent } = require('../services/redisPubSub');
 
 // In-memory store for active users and their socket connections
 const activeUsers = new Map(); // userId -> { socketId, rooms: Set }
@@ -23,8 +30,24 @@ const initializeSocketEvents = (io) => {
     activeUsers.get(userId).sockets.add(socket.id);
     socketUsers.set(socket.id, userId);
 
-    // Update user status to online
-    await updateUserStatus(userId, 'online');
+    // Update user status to online using Redis
+    try {
+      const userData = await User.findById(userId);
+      await setUserOnline(userId, socket.id, {
+        username: userData.username,
+        avatar: userData.avatar
+      });
+
+      // Publish presence event via Redis Pub/Sub
+      publishPresenceEvent('user:online', {
+        userId,
+        username: userData.username,
+        avatar: userData.avatar,
+        timestamp: new Date()
+      });
+    } catch (error) {
+      logger.error('Failed to set user online:', error.message);
+    }
 
     // Broadcast user online status
     io.emit('user:online', { userId, timestamp: new Date() });
@@ -380,13 +403,24 @@ const initializeSocketEvents = (io) => {
 
           // If no more sockets for this user, set status to offline
           if (userSockets.sockets.size === 0) {
-            await updateUserStatus(userId, 'offline');
+            // Update user status using Redis
+            const result = await setUserOffline(userId, socket.id);
+
+            // Publish presence event via Redis Pub/Sub
+            publishPresenceEvent('user:offline', {
+              userId,
+              timestamp: new Date()
+            });
+
             activeUsers.delete(userId);
 
             // Broadcast user offline status
             io.emit('user:offline', { userId, timestamp: new Date() });
 
             logger.info(`User ${userId} is now offline`);
+          } else {
+            // Just remove this socket connection from Redis
+            await setUserOffline(userId, socket.id);
           }
         }
 
@@ -411,20 +445,6 @@ const initializeSocketEvents = (io) => {
       logger.error(`Socket error for user ${userId}:`, error);
     });
   });
-};
-
-/**
- * Update user status in database
- */
-const updateUserStatus = async (userId, status) => {
-  try {
-    await User.findByIdAndUpdate(userId, {
-      status,
-      lastSeen: new Date()
-    });
-  } catch (error) {
-    logger.error(`Failed to update user status: ${error.message}`);
-  }
 };
 
 /**
