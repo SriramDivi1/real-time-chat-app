@@ -101,86 +101,86 @@ LOG_LEVEL=debug
 ```
 real-time-chat-app/
 ├── src/
-│   ├── server.js              # Express server setup
-│   ├── socket.js              # Socket.io configuration
+│   ├── server.js              # Express & Socket.io server
 │   ├── config/
 │   │   ├── database.js        # MongoDB connection
 │   │   └── environment.js     # Environment variables
 │   ├── models/
-│   │   ├── User.js            # User schema
-│   │   ├── Room.js            # Room schema
-│   │   └── Message.js         # Message schema
+│   │   ├── User.js            # User schema with auth
+│   │   ├── Chat.js            # Chat schema (direct & group)
+│   │   └── Message.js         # Message schema with features
 │   ├── routes/
-│   │   ├── auth.js            # Authentication routes
-│   │   ├── users.js           # User routes
+│   │   ├── auth.js            # Authentication endpoints
+│   │   ├── chat.js            # Chat REST APIs
 │   │   └── health.js          # Health check routes
 │   ├── controllers/
-│   │   ├── authController.js  # Auth logic
-│   │   └── userController.js  # User logic
+│   │   ├── userController.js  # Auth & user logic
+│   │   └── chatController.js  # Chat operations
 │   ├── middleware/
 │   │   ├── auth.js            # JWT verification
-│   │   └── errorHandler.js    # Error handling
-│   ├── services/
-│   │   └── messageService.js  # Business logic
+│   │   └── socketAuth.js      # WebSocket authentication
+│   ├── socket/
+│   │   └── chatEvents.js      # Real-time event handlers
 │   └── utils/
-│       ├── logger.js          # Logging utility
-│       └── validators.js      # Input validation
-├── tests/
-│   ├── unit/
-│   └── integration/
+│       └── logger.js          # Logging utility
 ├── .env.example               # Environment template
 ├── .gitignore                 # Git ignore rules
 ├── package.json               # Dependencies
-└── README.md                  # Documentation
+├── README.md                  # Main documentation
+├── API_DOCS_AUTH.md           # Authentication API docs
+├── API_DOCS_CHAT.md           # Chat REST API docs
+└── WEBSOCKET_GUIDE.md         # WebSocket events guide
 ```
 
 ## 🔧 API Endpoints
 
+### Authentication Endpoints
+- `POST /api/auth/register` - Register new user
+- `POST /api/auth/login` - User login
+- `GET /api/auth/me` - Get current user profile (protected)
+- `PUT /api/auth/profile` - Update user profile (protected)
+- `POST /api/auth/logout` - User logout (protected)
+
+### Chat Endpoints
+- `POST /api/chats` - Create chat (direct or group)
+- `GET /api/chats` - Get user's chat list (protected)
+- `GET /api/chats/:chatId/messages` - Get chat history (protected)
+- `POST /api/chats/:chatId/messages` - Send message (protected)
+- `PUT /api/chats/messages/:messageId` - Edit message (protected)
+- `DELETE /api/chats/messages/:messageId` - Delete message (protected)
+- `POST /api/chats/:chatId/participants` - Add participant (protected)
+- `DELETE /api/chats/:chatId/participants` - Remove participant (protected)
+
 ### Health Check
 - `GET /api/health` - Server health status
+- `GET /api/health/detailed` - Detailed server information
 
-### Response
-```json
-{
-  "status": "ok",
-  "timestamp": "2026-01-04T10:30:00Z",
-  "uptime": 3600,
-  "environment": "development"
-}
-```
+**Full API Documentation:**
+- [Authentication API](API_DOCS_AUTH.md)
+- [Chat REST API](API_DOCS_CHAT.md)
 
-## 🔌 Socket.io Events (Upcoming)
+## 🔌 WebSocket Events
 
-Will be implemented in Days 3-5:
-- `connect` - User connects
-- `disconnect` - User disconnects
-- `message` - Send message
-- `typing` - User typing indicator
-- `join_room` - Join chat room
-- `leave_room` - Leave chat room
+Real-time communication using Socket.IO:
 
-## 📊 Database Models (Upcoming)
+### Chat Events
+- `chat:join` - Join chat room
+- `chat:leave` - Leave chat room
+- `message:send` - Send message in real-time
+- `message:edit` - Edit message live
+- `message:delete` - Delete message live
+- `message:markRead` - Mark message as read
+- `message:reaction` - Add emoji reaction
 
-### User
-```javascript
-{
-  _id, email, username, password, profile, createdAt, updatedAt
-}
-```
+### Presence Events
+- `user:online` - User comes online
+- `user:offline` - User goes offline
+- `user:typing` - User is typing
+- `user:stoppedTyping` - User stopped typing
+- `user:joined` - User joined chat room
+- `user:left` - User left chat room
 
-### Room
-```javascript
-{
-  _id, name, description, members, createdAt, updatedAt
-}
-```
-
-### Message
-```javascript
-{
-  _id, room, user, content, timestamp, status, edited
-}
-```
+**Full WebSocket Guide:** [WEBSOCKET_GUIDE.md](WEBSOCKET_GUIDE.md)
 
 ## 🧪 Testing
 
@@ -218,7 +218,18 @@ Following a semantic versioning approach:
 - `test:` - Test additions and updates
 - `chore:` - Build and dependency updates
 
-**Current Status**: Project setup and core architecture
+## 📅 Development Progress
+
+### ✅ Completed
+- **Day 1**: Project setup, core architecture, health check API
+- **Day 2**: User authentication, JWT tokens, password hashing, auth middleware
+- **Day 3**: Chat models (direct & group), message persistence, REST APIs
+- **Day 4**: Real-time messaging with Socket.IO, WebSocket authentication, presence tracking
+
+### 🔜 Upcoming
+- **Day 5**: Notifications system, advanced features
+- **Day 6**: Testing suite, performance optimization
+- **Day 7**: Deployment, documentation finalization
 
 ## 🤝 Contributing
 
@@ -237,4 +248,4 @@ For issues and questions, please create an issue on GitHub.
 
 ---
 
-**Last Updated**: January 4, 2026 | **Phase**: Day 1 - Project Setup
+**Last Updated**: January 8, 2026 | **Phase**: Day 4 - Real-Time Messaging
