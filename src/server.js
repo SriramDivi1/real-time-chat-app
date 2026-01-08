@@ -25,6 +25,7 @@ connectDB();
 
 // Routes
 app.use('/api/health', require('./routes/health'));
+app.use('/api/auth', require('./routes/auth'));
 
 // 404 Handler
 app.use((req, res) => {
