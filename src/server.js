@@ -12,6 +12,8 @@ const { socketAuthMiddleware } = require('./middleware/socketAuth');
 const { initializeSocketEvents } = require('./socket/chatEvents');
 const { connectRedis, redisClient } = require('./config/redis');
 const { initializeRedisPubSub, closeRedisPubSub } = require('./services/redisPubSub');
+const { connectRabbitMQ, closeRabbitMQ } = require('./config/rabbitmq');
+const { initializeMessageQueue, setupMessageDeliveryWorker } = require('./services/messageQueue');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -32,6 +34,11 @@ connectDB();
 // Connect to Redis
 connectRedis().catch((err) => {
   logger.warn('Redis connection failed, continuing without Redis', err.message);
+});
+
+// Connect to RabbitMQ
+connectRabbitMQ().catch((err) => {
+  logger.warn('RabbitMQ connection failed, offline messaging disabled', err.message);
 });
 
 // Routes
@@ -90,12 +97,21 @@ initializeSocketEvents(io);
 // Initialize Redis Pub/Sub
 initializeRedisPubSub(io);
 
+// Initialize Message Queue and Delivery Worker
+initializeMessageQueue().then(() => {
+  setupMessageDeliveryWorker(io);
+  logger.info('📬 Message queue initialized and delivery worker started');
+}).catch((err) => {
+  logger.warn('Message queue initialization failed', err.message);
+});
+
 logger.info(`🔌 Socket.IO initialized with Redis adapter`);
 
 // Graceful Shutdown
 process.on('SIGTERM', () => {
   logger.info('SIGTERM signal received: closing HTTP server');
   closeRedisPubSub();
+  closeRabbitMQ();
   io.close();
   server.close(() => {
     logger.info('HTTP server, Socket.IO and Redis closed');

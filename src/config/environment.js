@@ -13,5 +13,9 @@ module.exports = {
   REDIS_PORT: process.env.REDIS_PORT || 6379,
   REDIS_PASSWORD: process.env.REDIS_PASSWORD || undefined,
   REDIS_DB: process.env.REDIS_DB || 0,
-  SERVER_ID: process.env.SERVER_ID || `server-${Date.now()}`
+  SERVER_ID: process.env.SERVER_ID || `server-${Date.now()}`,
+  RABBITMQ_HOST: process.env.RABBITMQ_HOST || 'localhost',
+  RABBITMQ_PORT: process.env.RABBITMQ_PORT || 5672,
+  RABBITMQ_USER: process.env.RABBITMQ_USER || 'guest',
+  RABBITMQ_PASSWORD: process.env.RABBITMQ_PASSWORD || 'guest'
 };

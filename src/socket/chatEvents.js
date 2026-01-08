@@ -6,9 +6,15 @@ const {
   setUserOnline,
   setUserOffline,
   publishPresenceEvent,
-  getOnlineUsers
+  getOnlineUsers,
+  getUserPresence
 } = require('../services/presenceManager');
 const { publishChatEvent } = require('../services/redisPubSub');
+const {
+  handleUserReconnection,
+  queueOfflineMessage,
+  trackMessageDelivery
+} = require('../services/messageQueue');
 
 // In-memory store for active users and their socket connections
 const activeUsers = new Map(); // userId -> { socketId, rooms: Set }
@@ -51,6 +57,18 @@ const initializeSocketEvents = (io) => {
 
     // Broadcast user online status
     io.emit('user:online', { userId, timestamp: new Date() });
+
+    /**
+     * Handle user reconnection - deliver queued messages
+     */
+    socket.on('user:reconnected', async () => {
+      try {
+        logger.info(`User reconnection event received: ${userId}`);
+        await handleUserReconnection(userId, socket, io);
+      } catch (error) {
+        logger.error('user:reconnected error:', error.message);
+      }
+    });
 
     /**
      * User joins a chat room
@@ -165,6 +183,24 @@ const initializeSocketEvents = (io) => {
           ...message.toObject(),
           isNew: true
         });
+
+        // Queue message for offline participants
+        for (const participant of chat.participants) {
+          if (participant.toString() !== userId) {
+            const userPresence = await getUserPresence(participant.toString());
+            if (!userPresence || !userPresence.isOnline) {
+              await queueOfflineMessage(
+                participant.toString(),
+                chatId,
+                message.toObject()
+              );
+              logger.info(`Message queued for offline user ${participant}`);
+            }
+          }
+        }
+
+        // Track message delivery
+        await trackMessageDelivery(message._id.toString(), userId, 'sent');
 
         // Acknowledge to sender
         socket.emit('message:sent', {
